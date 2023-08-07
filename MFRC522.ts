@@ -3,6 +3,7 @@
   */
 //% color="#275C6B" weight=100 icon="\uf2bb" block="MFRC522 RFID"
 namespace MFRC522 {
+    let COMMAND_I2C_ADDRESS = 0x28
     let Type2=0
     const BlockAdr: number[] = [8, 9, 10]
     let TPrescalerReg = 0x2B
@@ -41,15 +42,19 @@ namespace MFRC522 {
     let Key = [255, 255, 255, 255, 255, 255]
 
     function SetBits (reg: number, mask: number) {
-        let tmp = SPI_Read(reg)
-        SPI_Write(reg, (tmp|mask))
+        let tmp = I2C_Read(reg)
+        I2C_Write(reg, (tmp|mask))
     }
 
-    function SPI_Write (adr: number, val: number) {
-        pins.digitalWritePin(DigitalPin.P16, 0)
-        pins.spiWrite((adr << 1) & 0x7E)
+    function I2C_Write (reg: number, val: number) {
+    /*    pins.digitalWritePin(DigitalPin.P16, 0)
+        pins.spiWrite((reg << 1) & 0x7E)
         pins.spiWrite(val)
-        pins.digitalWritePin(DigitalPin.P16, 1)
+        pins.digitalWritePin(DigitalPin.P16, 1)*/
+        let buf = pins.createBuffer(2)
+        buf[0] = reg
+        buf[1] = val
+        pins.i2cWriteBuffer(COMMAND_I2C_ADDRESS, buf)
     }
 
     function readFromCard ():string {
@@ -87,12 +92,16 @@ namespace MFRC522 {
         return text_read
     }
 
-    function SPI_Read (adr: number) {
-        pins.digitalWritePin(DigitalPin.P16, 0)
-        pins.spiWrite(((adr<<1)& 0x7E)|0x80)
+    function I2C_Read (reg: number) {
+    /*    pins.digitalWritePin(DigitalPin.P16, 0)
+        pins.spiWrite(((reg<<1)& 0x7E)|0x80)
         val = pins.spiWrite(0)
         pins.digitalWritePin(DigitalPin.P16, 1)
         return val
+        */
+        pins.i2cWriteNumber(COMMAND_I2C_ADDRESS, reg, NumberFormat.UInt8BE);
+        let val = pins.i2cReadNumber(COMMAND_I2C_ADDRESS, NumberFormat.UInt8BE);
+        return val;
     }
 
     function writeToCard (txt: string): number {
@@ -158,15 +167,15 @@ namespace MFRC522 {
     }
 
     function ClearBits (reg: number, mask: number) {
-        let tmp = SPI_Read(reg)
-        SPI_Write(reg, tmp & (~mask))
+        let tmp = I2C_Read(reg)
+        I2C_Write(reg, tmp & (~mask))
     }
 
 
 
     function Request (reqMode: number):[number, any] {
         let Type:number[] = []
-        SPI_Write(BitFramingReg, 0x07)
+        I2C_Write(BitFramingReg, 0x07)
         Type.push(reqMode)
         let [status, returnData, returnBits] = MFRC522_ToCard(PCD_TRANSCEIVE, Type)
 
@@ -178,7 +187,7 @@ namespace MFRC522 {
     }
 
     function AntennaON () {
-        temp = SPI_Read(TxControlReg)
+        temp = I2C_Read(TxControlReg)
         if (~(temp & 0x03)) {
             SetBits(TxControlReg, 0x03)
         }
@@ -187,7 +196,7 @@ namespace MFRC522 {
     function AvoidColl ():[number,number[] ] {
         let SerNum = []
         ChkSerNum = 0
-        SPI_Write(BitFramingReg, 0)
+        I2C_Write(BitFramingReg, 0)
         SerNum.push(PICC_ANTICOLL)
         SerNum.push(0x20)
         let [status, returnData, returnBits] = MFRC522_ToCard(PCD_TRANSCEIVE, SerNum)
@@ -227,7 +236,7 @@ namespace MFRC522 {
             if (status != 0){
             serial.writeLine("AUTH ERROR!")
         }
-        if ((SPI_Read(Status2Reg) & 0x08)==0){
+        if ((I2C_Read(Status2Reg) & 0x08)==0){
             serial.writeLine("AUTH ERROR2!")
         }
         return status
@@ -252,15 +261,15 @@ namespace MFRC522 {
             waitIRQ = 0x30
         }
 
-        SPI_Write(0x02, irqEN | 0x80)
+        I2C_Write(0x02, irqEN | 0x80)
         ClearBits(ComIrqReg, 0x80)
         SetBits(FIFOLevelReg, 0x80)
-        SPI_Write(CommandReg, PCD_IDLE)
+        I2C_Write(CommandReg, PCD_IDLE)
 
         for (let o=0;o<(sendData.length);o++){
-            SPI_Write(FIFODataReg, sendData[o])
+            I2C_Write(FIFODataReg, sendData[o])
         }
-        SPI_Write(CommandReg, command)
+        I2C_Write(CommandReg, command)
 
         if (command == PCD_TRANSCEIVE){
             SetBits(BitFramingReg, 0x80)
@@ -268,7 +277,7 @@ namespace MFRC522 {
 
         let p = 2000
         while (true){
-            n = SPI_Read(ComIrqReg)
+            n = I2C_Read(ComIrqReg)
             p --
             if (~(p != 0 && ~(n & 0x01) && ~(n & waitIRQ))) {
                 break
@@ -277,14 +286,14 @@ namespace MFRC522 {
         ClearBits(BitFramingReg, 0x80)
 
         if (p != 0){
-            if ((SPI_Read(0x06) & 0x1B) == 0x00){
+            if ((I2C_Read(0x06) & 0x1B) == 0x00){
                 status = 0
                     if (n & irqEN & 0x01){
                     status = 1
                 }
                 if (command == PCD_TRANSCEIVE){
-                    n = SPI_Read(FIFOLevelReg)
-                    lastBits = SPI_Read(ControlReg) & 0x07
+                    n = I2C_Read(FIFOLevelReg)
+                    lastBits = I2C_Read(ControlReg) & 0x07
                     if (lastBits != 0){
                         returnLen = (n -1)*8+lastBits
                     }
@@ -298,7 +307,7 @@ namespace MFRC522 {
                         n = MAX_LEN
                     }
                     for (let q=0;q<n;q++){
-                        returnData.push(SPI_Read(FIFODataReg))
+                        returnData.push(I2C_Read(FIFODataReg))
                     }
                 }
             }
@@ -334,13 +343,13 @@ namespace MFRC522 {
         ClearBits(DivIrqReg, 0x04)
         SetBits(FIFOLevelReg, 0x80)
         for ( let s=0;s<(DataIn.length);s++){
-            SPI_Write(FIFODataReg, DataIn[s])
+            I2C_Write(FIFODataReg, DataIn[s])
         }
-        SPI_Write(CommandReg, 0x03)
+        I2C_Write(CommandReg, 0x03)
         let t = 0xFF
 
         while (true){
-            let v = SPI_Read(DivIrqReg)
+            let v = I2C_Read(DivIrqReg)
             t--
             if (!(t != 0 && !(v & 0x04))){
                 break
@@ -348,8 +357,8 @@ namespace MFRC522 {
         }
 
         let DataOut: number[] = []
-        DataOut.push(SPI_Read(0x22))
-        DataOut.push(SPI_Read(0x21))
+        DataOut.push(I2C_Read(0x22))
+        DataOut.push(I2C_Read(0x21))
         return DataOut
     }
 
@@ -416,19 +425,19 @@ namespace MFRC522 {
     //% block="Initialize MFRC522 Module"
     //% weight=100
    export function Init() {
-       pins.spiPins(DigitalPin.P15, DigitalPin.P14, DigitalPin.P13)
+   /*    pins.spiPins(DigitalPin.P15, DigitalPin.P14, DigitalPin.P13)
        pins.spiFormat(8, 0)
        pins.digitalWritePin(DigitalPin.P16, 1)
-
+*/
        // reset module
-       SPI_Write(CommandReg, PCD_RESETPHASE)
+       I2C_Write(CommandReg, PCD_RESETPHASE)
 
-       SPI_Write(0x2A, 0x8D)
-       SPI_Write(0x2B, 0x3E)
-       SPI_Write(0x2D, 30)
-       SPI_Write(0x2E, 0)
-       SPI_Write(0x15, 0x40)
-       SPI_Write(0x11, 0x3D)
+       I2C_Write(0x2A, 0x8D)
+       I2C_Write(0x2B, 0x3E)
+       I2C_Write(0x2D, 30)
+       I2C_Write(0x2E, 0)
+       I2C_Write(0x15, 0x40)
+       I2C_Write(0x11, 0x3D)
        AntennaON()
    }
 
