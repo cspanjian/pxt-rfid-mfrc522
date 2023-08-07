@@ -1,6 +1,6 @@
-目前这个是SPI接口的，我得把它改造成IIC接口的microbit扩展
-
 # MakeCode Package for the Joy-IT SBC-RFID-RC522 RFID module (MFRC522).
+
+目前这个是SPI接口的，我得把它改造成IIC接口的microbit扩展
 
 This library provides a Microsoft Makecode package for the Joy-IT SBC-RFID-RC522 RFID module.
 See https://joy-it.net/products/SBC-RFID-RC522 for more details.
