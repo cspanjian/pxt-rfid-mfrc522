@@ -2,67 +2,8 @@
 
 我已经把它改造成IIC接口的microbit扩展，WS1850S这个读卡器工作正常
 
-This library provides a Microsoft Makecode package for the Joy-IT SBC-RFID-RC522 RFID module.
-See https://joy-it.net/products/SBC-RFID-RC522 for more details.
+这里没有提供检测RFID卡的程序，而是提供了两个读取ID的程序，一个是阻塞式的，读到了ID才会执行下一步；一个是非阻塞式的，读一次，不管读没读到ID，程序都会继续执行下一步的代码
 
-## Connection
+基于非阻塞式的读ID程序来实现检测卡的代码可以参考下面的截图。这么做的好处是，在检测到卡的时候，也拿到了ID，从而不需要再次读取ID，提高性能
+<img width="678" alt="image" src="https://github.com/cspanjian/pxt-rfid-mfrc522/assets/58835905/bea50160-5b53-4804-99ed-56f575a93be6">
 
-The RFID module needs to be connected with six pins to the Micro:bit:
-
-| RFID module   | Micro:bit     |
-| ------------- |:-------------:|
-| VCC           | 3V            |
-| GND           | GND           |
-| MISO          | P15           |
-| MOSI          | P14           |
-| SCK           | P13           |
-| NSS           | P16           |
-
-## Initialize RFID module
-
-The RFID module needs to be initialized before it is ready to use. All necessary commands will be transfered via SPI here.
-
-```typescript
-// Initialize RIFD module
-MFRC522.Init()
-```
-
-## Read ID from card
-This function reads the cards unique ID and returns it.
-
-```typescript
-// Read unique ID
-MFRC522.getID()
-```
-
-## Read data from card
-Data stored on the card can be retrieved with this function.
-
-```typescript
-// Read data
-MFRC522.read()
-```
-
-## Write data to card
-Write data, formatted as string, to the card.
-
-```typescript
-// Write data
-MFRC522.write("1234")
-```
-
-## Turn off antenna
-After use, the antenn can be turned off.
-
-```typescript
-// Turn antenna off
-MFRC522.AntennaOff()
-```
-
-## Supported targets
-
-* for PXT/microbit
-
-## License
-
-MIT
